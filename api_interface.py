@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-class api_session(ABC):
+class ApiSessionInterface(ABC):
 
     @property #property means this is an attribute (data) in abstract base class
     @abstractmethod
