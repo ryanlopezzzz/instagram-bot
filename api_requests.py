@@ -1,4 +1,3 @@
-from instagram_private_api import Client
 from collections import Counter
 
 class BasicUserInfo():
@@ -14,9 +13,8 @@ class BasicUserInfo():
         self.private_status = self.username_info['user']['is_private']
 
 class PublicUserInfoRequests(BasicUserInfo):
-    def __init__(self,api,username,rank_token):
+    def __init__(self,api,username):
         super().__init__(api,username)
-        self.rank_token = rank_token
         self._error_handling()
     
     def _error_handling(self):
@@ -25,11 +23,17 @@ class PublicUserInfoRequests(BasicUserInfo):
         elif self.private_status:
             raise ValueError("Can't get following info from private account.")
 
+    def get_followers_usernames(self):
+        user_followers_info = self._get_user_followers_info()
+        followers_usernames = [follower['username'] for follower in user_followers_info]
+        return followers_usernames
+
     def _get_user_followers_info(self):
         user_followers_info = []
         begin_query_index = 0
+        rank_token = self.api.generate_uuid()
         while True:
-            user_followers_query = self.api.user_followers(self.user_id,self.rank_token,max_id=begin_query_index)
+            user_followers_query = self.api.user_followers(self.user_id,rank_token,max_id=begin_query_index)
             user_followers_info.extend(user_followers_query['users'])
             if 'next_max_id' not in user_followers_query:
                 break
@@ -37,27 +41,23 @@ class PublicUserInfoRequests(BasicUserInfo):
                 begin_query_index = user_followers_query['next_max_id']
         return user_followers_info
 
-    def get_followers_usernames(self):
-        user_followers_info = self._get_user_followers_info()
-        followers_usernames = [follower['username'] for follower in user_followers_info]
-        return followers_usernames
+    def get_following_usernames(self):
+        user_following_info = self._get_user_following_info()
+        following_usernames = [following_user['username'] for following_user in user_following_info]
+        return following_usernames
 
     def _get_user_following_info(self):
         user_following_info = []
         begin_query_index = 0
+        rank_token = self.api.generate_uuid()
         while True:
-            user_following_query = self.api.user_following(self.user_id,self.rank_token,max_id=begin_query_index)
+            user_following_query = self.api.user_following(self.user_id,rank_token,max_id=begin_query_index)
             user_following_info.extend(user_following_query['users'])
             if 'next_max_id' not in user_following_query:
                 break
             else:
                 begin_query_index = user_following_query['next_max_id']
         return user_following_info
-
-    def get_following_usernames(self):
-        user_following_info = self._get_user_following_info()
-        following_usernames = [following_user['username'] for following_user in user_following_info]
-        return following_usernames
 
     def get_user_feed_media_ids(self):
         """
@@ -76,21 +76,22 @@ class PublicUserInfoRequests(BasicUserInfo):
         return user_feed_media_ids
 
 class MediaInfoRequests():
-    def __init__(self,api,media_id,rank_token):
+    def __init__(self,api,media_id):
         self.api = api
         self.media_id = media_id
-        self.rank_token = rank_token
-
-    def _get_comments_info(self):
-        """
-        Gets maximum of 150 comments
-        """
-        return self.api.media_n_comments(self.media_id,n=150,reverse=True)
         
     def get_comment_count(self):
         comments_query = self.api.media_comments(self.media_id)
         comment_count = comments_query['comment_count']
         return comment_count
+
+    def _get_comments_info(self):
+        raise Warning('_get_comments_info may not load all comments')
+        """
+        Gets maximum of 150 comments
+        """
+        return self.api.media_n_comments(self.media_id,n=150,reverse=True)
+
 
     def get_n_comments_text(self):
         comments_info = self._get_comments_info()
@@ -102,3 +103,30 @@ class MediaInfoRequests():
         usernames_of_comments = [comment['user']['username'] for comment in comments_info]
         comment_count_per_username = Counter(usernames_of_comments)
         return comment_count_per_username
+
+class InteractWithUsersActions():
+    def __init__(self, api):
+        self.api = api
+
+    def follow_user(self, user_id):
+        self.api.friendships_create(user_id)
+    
+    def unfollow_user(self, user_id):
+        self.api.friendships_destroy(user_id)
+
+    def like_post(self, media_id):
+        self.api.post_like(media_id)
+
+    def post_comment(self, media_id, comment):
+        self.api.post_comment(media_id, comment)
+
+class CollectDataThroughHashtags():
+    def __init__(self, api):
+        self.api = api
+
+
+    
+
+
+
+
