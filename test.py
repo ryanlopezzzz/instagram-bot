@@ -40,7 +40,7 @@ def naive_followback_probability(username):
 
 def remove_private_accs_from_followers(username):
 	"""
-
+	Returns an array of the list of followers of a given username without private accounts
 	"""
 	cleaned_list = []
 	puir = PublicUserInfoRequests(api, username)
@@ -50,6 +50,26 @@ def remove_private_accs_from_followers(username):
 		if(basic_user_info.private_status == False):
 			cleaned_list.append(followers_usernames[i])
 	return cleaned_list
+
+def remove_private_accs_from_following(username):
+	"""
+	Returns an array of the list of following of a given username without private accounts
+	"""
+	cleaned_list = []
+	puir = PublicUserInfoRequests(api, username)
+	following_usernames = puir.get_following_usernames()
+	for i in range(len(following_usernames)):
+		basic_user_info = BasicUserInfo(api, following_usernames[i])
+		if(basic_user_info.private_status == False):
+			cleaned_list.append(following_usernames[i])
+	return cleaned_list
+
+def less_naive_followback_probability(username):
+	new_follower = remove_private_accs_from_followers(username)
+	new_following = remove_private_accs_from_following(username)
+	return (len(new_follower) / len(new_following))
+
+
 
 def compute_follower_ratio(username):
 	"""
@@ -79,9 +99,11 @@ t = time.process_time()
 for username in test_usernames:
 	
 	print("Username: " + username)
+	#print(remove_private_accs_from_following(username))
 	#print(remove_private_accs(username))
 	#compute_follower_ratio(username)
-	print('List of Optimal People to Follow from '+ username+':', optimal_followers(username))
+	#print('List of Optimal People to Follow from '+ username+':', optimal_followers(username))
+	print(less_naive_followback_probability(username))
 	print("-"*100)
 
 elapsed_time = time.process_time() - t
