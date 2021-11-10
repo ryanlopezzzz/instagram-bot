@@ -7,6 +7,12 @@ import numpy as np
 
 
 class SafeClient(Client):
+    """
+    Safe wrapper for api Client class. Additional features: 
+        - Uses cached auth cookies to avoid making API call to relog in
+        - Sleeps before making API calls
+        - Restricts number of API calls
+    """
     def __init__(self, username, password, *args, **kwargs):
         if 'max_api_calls_per_hour' in kwargs:
             self.max_api_calls_per_hour = kwargs.pop('max_api_calls_per_hour')
@@ -35,7 +41,7 @@ class SafeClient(Client):
             on_login = lambda x: SafeClient._onlogin_callback(x, settings_filename)
             super().__init__(username, password, *args, on_login=on_login, **kwargs)
 
-        #Create file for keeping api time calls if necessary
+        #Create file for keeping api call times if doesnt exist
         api_call_times_filename = 'saved_info/%s_api_call_times.json'%username
         if not os.path.isfile(api_call_times_filename):
             with open(api_call_times_filename, 'w') as outfile:

@@ -7,11 +7,6 @@ class ApiSessionInterface(ABC):
     def api(self):
         pass
 
-    @property
-    @abstractmethod
-    def rank_token(self):
-        pass
-
     @abstractmethod
     def get_private_status(self, username: str) -> bool:
         pass
