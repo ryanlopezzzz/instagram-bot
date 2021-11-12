@@ -26,6 +26,13 @@ class SafeClient(Client):
             #random time for api calls makes bot look more human
             self.api_call_wait_time_generator = lambda : np.random.uniform(low=3.0, high=5.0)
 
+        #Create file for keeping api call times if doesnt exist
+        api_call_times_filename = 'saved_info/%s_api_call_times.json'%username
+        if not os.path.isfile(api_call_times_filename):
+            with open(api_call_times_filename, 'w') as outfile:
+                initial_time_list = [0] #give nonempty file for json to read
+                json.dump(initial_time_list, outfile)
+
         #Initialize with saved auth cookies if exists or create new login.
         settings_filename = 'saved_info/%s_login_settings.json'%username
         try:
@@ -40,13 +47,6 @@ class SafeClient(Client):
             print('ClientCookieExpiredError/ClientLoginRequiredError: {0!s}'.format(e))
             on_login = lambda x: SafeClient._onlogin_callback(x, settings_filename)
             super().__init__(username, password, *args, on_login=on_login, **kwargs)
-
-        #Create file for keeping api call times if doesnt exist
-        api_call_times_filename = 'saved_info/%s_api_call_times.json'%username
-        if not os.path.isfile(api_call_times_filename):
-            with open(api_call_times_filename, 'w') as outfile:
-                initial_time_list = [0] #give nonempty file for json to read
-                json.dump(initial_time_list, outfile)
 
     @staticmethod
     def _to_json(python_object):
