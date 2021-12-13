@@ -106,4 +106,4 @@ class SafeClient(Client):
 
 class ApiLimitReachedException(Exception):
     def __init__(self):
-        super.__init__('API Limit Reached For This Hour.')
+        super().__init__('API Limit Reached For This Hour.')
