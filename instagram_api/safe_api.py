@@ -24,7 +24,7 @@ class SafeClient(Client):
             self.api_call_wait_time_generator = kwargs.pop('api_call_wait_time_generator')
         else:
             #random time for api calls makes bot look more human
-            self.api_call_wait_time_generator = lambda : np.random.uniform(low=10.0, high=15.0)
+            self.api_call_wait_time_generator = lambda : np.random.uniform(low=2.0, high=3.0)
 
         #Create file for keeping api call times if doesnt exist
         api_call_times_filename = 'saved_info/%s_api_call_times.json'%username
@@ -95,10 +95,15 @@ class SafeClient(Client):
         seconds_in_hour = 3600
         num_recorded = len(api_calls_in_seconds)
         if time.time()-oldest_call < seconds_in_hour and num_recorded >= self.max_api_calls_per_hour:
-            raise Exception('API call limit reached')
+            raise ApiLimitReachedException()
 
     def _update_api_call_times(self, api_calls_in_seconds):
         api_call_times_filename = 'saved_info/%s_api_call_times.json'%self.username
         api_calls_in_seconds.append(time.time())
         with open(api_call_times_filename, 'w') as outfile:
             json.dump(api_calls_in_seconds, outfile)
+
+
+class ApiLimitReachedException(Exception):
+    def __init__(self):
+        super.__init__('API Limit Reached For This Hour.')
