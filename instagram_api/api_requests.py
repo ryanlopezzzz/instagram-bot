@@ -1,18 +1,37 @@
 from collections import Counter
 
 class BasicUserInfo():
+    """
+    Relevant basic user information that is returned by other api calls.
+    """
+    def __init__(self, user_id, username, full_name, profile_pic_url):
+        self.user_id = user_id
+        self.username = username
+        self.full_name = full_name
+        self.profile_pic_url = profile_pic_url
+
+class UserInfo():
+    """
+    All relevant information returned by api.username_info() call.
+    """
     def __init__(self,api,username):
         self.api = api
         self.username = username
         self.username_info = api.username_info(username)
 
         self.user_id = self.username_info['user']['pk']
+        self.full_name = self.username_info['user']['full_name']
+        self.private_status = self.username_info['user']['is_private']
+        self.profile_pic_url = self.username_info['user']['profile_pic_url']
+        self.media_count = self.username_info['user']['media_count']
         self.follower_count = self.username_info['user']['follower_count']
         self.following_count = self.username_info['user']['following_count']
-        self.media_count = self.username_info['user']['media_count']
-        self.private_status = self.username_info['user']['is_private']
+        self.bio_text = self.username_info['user']['biography']
+        self.url_in_bio = self.username_info['user']['external_url']
+        self.hashtag_following_count = self.username_info['user']['following_tag_count']
+        self.usertags_count = self.username_info['user']['usertags_count']
 
-class PublicUserInfoRequests(BasicUserInfo):
+class PublicUserInfoRequests(UserInfo):
     def __init__(self,api,username):
         super().__init__(api,username)
         self._error_handling()
