@@ -1,4 +1,7 @@
 from collections import Counter
+import warnings
+import names
+import random
 
 class BasicUserInfo():
     """
@@ -105,7 +108,7 @@ class MediaInfoRequests():
         return comment_count
 
     def _get_comments_info(self):
-        raise Warning('_get_comments_info may not load all comments')
+        warnings.warn('_get_comments_info may not load all comments')
         """
         Gets maximum of 150 comments
         """
@@ -139,11 +142,16 @@ class InteractWithUsersActions():
     def post_comment(self, media_id, comment):
         self.api.post_comment(media_id, comment)
 
-class CollectDataThroughHashtags():
-    def __init__(self, api):
-        self.api = api
+def get_random_username(api):
+    #gets psuedo random username
+    random_first_name = names.get_first_name() #random first name
+    search_results = api.search_users(random_first_name)['users']
+    num_results = len(search_results)
+    return_result_index = random.randint(0, num_results-1)
+    return_username = search_results[return_result_index]['username']
+    return return_username
 
-
+    
     
 
 
