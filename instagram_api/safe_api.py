@@ -94,17 +94,18 @@ class SafeClient(Client):
         api_call_times_filename = 'saved_info/%s_api_call_times.json'%self.username
         with open(api_call_times_filename, 'r') as outfile:
             api_calls_in_seconds = json.load(outfile)
-        api_calls_in_seconds = api_calls_in_seconds[-self.max_api_calls_per_hour:]
+        api_calls_in_seconds = api_calls_in_seconds[-int(1e4):] #limit to number of clock times saved
         return api_calls_in_seconds
 
     def _reached_api_limit(self, api_calls_in_seconds):
         """
-        Returns True if max_api_calls_per_hour is reached, otherwise False
+        Returns True if max_api_calls_per_hour is reached in an hour, otherwise False
         """
-        oldest_call = api_calls_in_seconds[0]
+        oldest_relevant_call = api_calls_in_seconds[-self.max_api_calls_per_hour]
+        time_since_oldest_relevant_call = time.time()-oldest_relevant_call
         seconds_in_hour = 3600
         num_recorded = len(api_calls_in_seconds)
-        return (time.time()-oldest_call < seconds_in_hour and num_recorded >= self.max_api_calls_per_hour)
+        return (time_since_oldest_relevant_call < seconds_in_hour and num_recorded >= self.max_api_calls_per_hour)
 
     def _update_api_call_times(self, api_calls_in_seconds):
         api_call_times_filename = 'saved_info/%s_api_call_times.json'%self.username
@@ -115,4 +116,4 @@ class SafeClient(Client):
 
 class ApiLimitReachedException(Exception):
     def __init__(self):
-        super().__init__('API Limit Reached For This Hour.')
+        super().__init__('API Limit Reached.')
