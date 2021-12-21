@@ -25,7 +25,7 @@ class SafeClient(Client):
             self.api_call_wait_time_generator = kwargs.pop('api_call_wait_time_generator')
         else:
             #random time for api calls makes bot look more human
-            self.api_call_wait_time_generator = lambda : np.random.uniform(low=3.0, high=6.0) 
+            self.api_call_wait_time_generator = lambda : np.random.uniform(low=3.0, high=4.0) 
         
         #Create file for keeping api call times if doesnt exist
         api_call_times_filename = 'saved_info/%s_api_call_times.json'%username
@@ -101,11 +101,13 @@ class SafeClient(Client):
         """
         Returns True if max_api_calls_per_hour is reached in an hour, otherwise False
         """
+        num_recorded = len(api_calls_in_seconds)
+        if num_recorded < self.max_api_calls_per_hour:
+            return False
         oldest_relevant_call = api_calls_in_seconds[-self.max_api_calls_per_hour]
         time_since_oldest_relevant_call = time.time()-oldest_relevant_call
         seconds_in_hour = 3600
-        num_recorded = len(api_calls_in_seconds)
-        return (time_since_oldest_relevant_call < seconds_in_hour and num_recorded >= self.max_api_calls_per_hour)
+        return (time_since_oldest_relevant_call < seconds_in_hour)
 
     def _update_api_call_times(self, api_calls_in_seconds):
         api_call_times_filename = 'saved_info/%s_api_call_times.json'%self.username
