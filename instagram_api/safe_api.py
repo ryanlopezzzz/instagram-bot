@@ -13,7 +13,8 @@ class SafeClient(Client):
         - Sleeps before making API calls
         - Restricts number of API calls
     """
-    def __init__(self, username, password, *args, **kwargs):
+    def __init__(self, username, password, retry_failed_call = False, *args, **kwargs):
+        self.retry_failed_call = retry_failed_call #If True, when API call limit is reached, program will sleep and then retry.
         if 'max_api_calls_per_hour' in kwargs:
             self.max_api_calls_per_hour = kwargs.pop('max_api_calls_per_hour')
         else:
@@ -24,8 +25,8 @@ class SafeClient(Client):
             self.api_call_wait_time_generator = kwargs.pop('api_call_wait_time_generator')
         else:
             #random time for api calls makes bot look more human
-            self.api_call_wait_time_generator = lambda : np.random.uniform(low=2.0, high=3.0)
-
+            self.api_call_wait_time_generator = lambda : np.random.uniform(low=3.0, high=6.0) 
+        
         #Create file for keeping api call times if doesnt exist
         api_call_times_filename = 'saved_info/%s_api_call_times.json'%username
         if not os.path.isfile(api_call_times_filename):
@@ -69,13 +70,19 @@ class SafeClient(Client):
 
     def _call_api(self, *args, **kwargs):
         """
-        Safe wrapper for Ping's _call_api method. Program waits, then gives exception if 
-        max_api_calls_per_hour have been made in the last hour. Keeps record of most recent 
-        api call times in seconds in json file.
+        Safe wrapper for Ping's _call_api method. Program waits, then either gives exception or waits and retries
+        if max_api_calls_per_hour have been made in the last hour. Keeps record of most recent api call times 
+        in seconds in json file.
         """
         self._api_sleep()
         api_calls_in_seconds = self._load_api_call_times()
-        self._check_reached_api_limit(api_calls_in_seconds)
+        while True: #only loops if reached api limit and retry_failed_call is True
+            if not self._reached_api_limit(api_calls_in_seconds):
+                break
+            elif self.retry_failed_call:
+                time.sleep(60)
+            else:
+                raise ApiLimitReachedException()
         self._update_api_call_times(api_calls_in_seconds)
         return super()._call_api(*args, **kwargs)
 
@@ -90,12 +97,14 @@ class SafeClient(Client):
         api_calls_in_seconds = api_calls_in_seconds[-self.max_api_calls_per_hour:]
         return api_calls_in_seconds
 
-    def _check_reached_api_limit(self, api_calls_in_seconds):
+    def _reached_api_limit(self, api_calls_in_seconds):
+        """
+        Returns True if max_api_calls_per_hour is reached, otherwise False
+        """
         oldest_call = api_calls_in_seconds[0]
         seconds_in_hour = 3600
         num_recorded = len(api_calls_in_seconds)
-        if time.time()-oldest_call < seconds_in_hour and num_recorded >= self.max_api_calls_per_hour:
-            raise ApiLimitReachedException()
+        return (time.time()-oldest_call < seconds_in_hour and num_recorded >= self.max_api_calls_per_hour)
 
     def _update_api_call_times(self, api_calls_in_seconds):
         api_call_times_filename = 'saved_info/%s_api_call_times.json'%self.username
