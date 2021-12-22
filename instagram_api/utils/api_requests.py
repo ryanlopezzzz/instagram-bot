@@ -1,3 +1,6 @@
+"""
+Provides classes / functions for calling the instagram api.
+"""
 from collections import Counter
 import warnings
 import names

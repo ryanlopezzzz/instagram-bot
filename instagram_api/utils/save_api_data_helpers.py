@@ -2,7 +2,7 @@
 Helper functions for saving API collected data to pandas tables / csv files
 """
 import pandas as pd
-from api_requests import (UserInfo, PublicUserInfoRequests)
+from utils.api_requests import (UserInfo, PublicUserInfoRequests)
 import time
 import os
 
