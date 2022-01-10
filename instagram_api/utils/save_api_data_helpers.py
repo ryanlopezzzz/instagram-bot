@@ -2,57 +2,84 @@
 Helper functions for saving API collected data to pandas tables / csv files
 """
 import pandas as pd
-from utils.api_requests import (UserInfo, PublicUserInfoRequests)
 import time
 import os
 
-def add_followers_user_info_to_csv(api, username, user_table_filename):
+def add_following_user_info_to_csv(api, user_id, user_table_filename, **api_kwargs):
     """
-    Adds username's followers user info to user_table_filename csv file
+    Returns next_begin_query_id and adds user_id's followers' user info to csv file.
     """
-    followers_usernames = PublicUserInfoRequests(api, username).get_followers_usernames()
-    generated_user_table = get_user_info_table(api, followers_usernames)
-    if os.path.isfile(user_table_filename): #Load existing CSV file if exists
-        loaded_user_table = pd.read_csv(user_table_filename)
-        loaded_user_table.set_index('user_id', inplace=True)
-    else:
-        loaded_user_table = None
-    new_user_table = combine_user_info_tables(loaded_user_table, generated_user_table)
-    new_user_table.to_csv(user_table_filename)
+    following_ids, next_begin_query_id = api.user_following(user_id, **api_kwargs)
+    user_table = get_user_info_table(api, following_ids)
+    update_csv_file(user_table, user_table_filename)
+    return next_begin_query_id
 
-def get_user_info_table(api, usernames):
+def add_followers_user_info_to_csv(api, user_id, user_table_filename, **api_kwargs):
     """
-    Collects user info for each username through API and formats as pandas dataframe
+    Returns next_begin_query_id and adds user_id's followers' user info to csv file.
     """
-    column_names_for_table = ['user_id', 'username', 'private_status', 'follower_count', 'following_count', 
-                              'media_count', 'full_name', 'profile_pic_url', 'bio_text', 'url_in_bio', 
-                              'hashtag_following_count', 'usertags_count', 'api_request_time']
+    followers_ids, next_begin_query_id = api.user_followers(user_id, **api_kwargs)
+    user_table = get_user_info_table(api, followers_ids)
+    update_csv_file(user_table, user_table_filename)
+    return next_begin_query_id
+
+def add_user_feed_to_csv(api, user_id, media_table_filename, **api_kwargs):
+    """
+    Returns next_begin_query_id and adds user_id's media (post) info to csv file.
+    """
+    media_table, next_begin_query_id = get_user_feed_table(api, user_id, **api_kwargs)
+    update_csv_file(media_table, media_table_filename)
+    return next_begin_query_id
+
+def get_user_info_table(api, user_ids):
+    """
+    Collects user info for each user_id through API and formats as pandas dataframe.
+    """
+    user_info_keys = ['user_id', 'username', 'private_status', 'follower_count', 'following_count', 'media_count',
+                      'full_name', 'profile_pic_url', 'bio_text', 'url_in_bio', 'hashtag_following_count', 
+                      'usertags_count']
+    column_names_for_table = user_info_keys + ['api_request_time']
     table_rows = []
-    for username in usernames:
-        user_info = UserInfo(api, username)
-        user_info_attributes = column_names_for_table[:-1]
-        single_user_data = [user_info.__dict__[attribute] for attribute in user_info_attributes]
+    for user_id in user_ids: #loop through different users
+        single_user_info = api.user_info(user_id)
         api_request_time = time.time()
-        row_data = single_user_data + [api_request_time]
+        row_data = [single_user_info[key] for key in user_info_keys] + [api_request_time]
         table_rows.append(row_data)
     dataframe = pd.DataFrame(table_rows, columns=column_names_for_table)
     dataframe.set_index('user_id', inplace=True)
     return dataframe
 
-def combine_user_info_tables(table1, table2):
+def get_user_feed_table(api, user_id, **api_kwargs):
     """
-    Combines tables along user_id while eliminating duplicates by only keeping the most recently collected data
+    Collects media info for each post from user_id through API and formats as pandas dataframe.
     """
-    #combine tables
-    new_table = pd.concat([table1, table2])
-    
-    #sort so most recent data is on top
-    new_table = new_table.sort_values('api_request_time', ascending=False)
-    
-    #get indices of rows with duplicated user_ids, except for their first (most recent) appearance in the table
-    duplicated_indices = new_table.index.duplicated(keep='first')
+    media_info_keys = ['media_id', 'user_id', 'username', 'like_count', 'comment_count', 'time_posted',
+                       'num_sliding_content', 'media_type', 'caption_text', 'media_urls', 'tagged_users',]
+    column_names_for_table = media_info_keys + ['api_request_time']
+    user_feed, next_begin_query_id = api.user_feed(user_id, **api_kwargs)
+    api_request_time = time.time()
+    table_rows = []
+    for single_media_info in user_feed: #loop through different posts (medias)
+        row_data = [single_media_info[key] for key in media_info_keys] + [api_request_time]
+        table_rows.append(row_data)
+    dataframe = pd.DataFrame(table_rows, columns=column_names_for_table)
+    dataframe.set_index('media_id', inplace=True)
+    return dataframe, next_begin_query_id
 
-    #exclude duplicated user_id rows which are not most recent
+def update_csv_file(table, csv_filename):
+    if os.path.isfile(csv_filename):
+        loaded_table = pd.read_csv(csv_filename, index_col=0)
+    else:
+        loaded_table = None
+    new_table = combine_info_tables(table, loaded_table)
+    new_table.to_csv(csv_filename)
+
+def combine_info_tables(table1, table2):
+    """
+    Combines two tables and eliminates duplicates by only keeping most recently collected data
+    """
+    new_table = pd.concat([table1, table2])
+    new_table = new_table.sort_values('api_request_time', ascending=False) #most recent on top
+    duplicated_indices = new_table.index.duplicated(keep='first') #all duplicates except the first set to True
     new_table = new_table[~duplicated_indices]
-    
     return new_table
