@@ -206,7 +206,7 @@ class SafeClientExtended(SafeClient):
         return output_formatted, next_begin_query_id
 
     def _format_follow_info_output(self, output):
-        output_formatted = [[follow['pk'],follow['username']] for follow in output['users']]
+        output_formatted = [follow['pk'] for follow in output['users']]
         return output_formatted
 
     def user_feed(self, user_id, begin_query_id = None, **kwargs):
@@ -253,12 +253,12 @@ class SafeClientExtended(SafeClient):
                 if media.get('usertags') == None:
                     media_output['tagged_users'] = None
                 else:
-                    media_output['tagged_users'] = [[user['user']['username'], user['user']['pk']] for user in media['usertags']['in']]
+                    media_output['tagged_users'] = [user['user']['pk'] for user in media['usertags']['in']]
             else:
                 tagged_users = []
                 for single_image in media['carousel_media']:
                     if single_image.get('usertags') != None:
-                        tagged_users.extend([[user['user']['pk'], user['user']['username']] for user in single_image['usertags']['in']])
+                        tagged_users.extend([user['user']['pk'] for user in single_image['usertags']['in']])
                 tagged_users_no_duplicates = []
                 [tagged_users_no_duplicates.append(user) for user in tagged_users if user not in tagged_users_no_duplicates]
                 if len(tagged_users_no_duplicates) == 0:
