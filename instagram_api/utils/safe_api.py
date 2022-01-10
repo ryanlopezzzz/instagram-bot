@@ -1,11 +1,12 @@
 """
-Wrapper for instagram api Client class to prevent getting banned.
+Wrapper for Ping's instagram api Client class which adds additional features. Should use SafeClientExtended() class for data collection.
 """
 from instagram_private_api import Client, ClientCookieExpiredError, ClientLoginRequiredError
 import time
 import json
 import codecs
 import numpy as np
+import functools
 import os
 instagram_api_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -14,7 +15,7 @@ class SafeClient(Client):
     Safe wrapper for api Client class. Additional features: 
         - Uses cached auth cookies to avoid making API call to relog in
         - Sleeps before making API calls
-        - Restricts number of API calls
+        - Restricts number of API calls per hour
     """
     def __init__(self, username, password, retry_failed_call = False, *args, **kwargs):
         self.api_call_times_filename = os.path.join(instagram_api_folder, 'saved_info/%s_api_call_times.json'%username)
@@ -24,7 +25,7 @@ class SafeClient(Client):
             self.max_api_calls_per_hour = kwargs.pop('max_api_calls_per_hour')
         else:
             official_max = 200
-            safety_margin = 120
+            safety_margin = 40
             self.max_api_calls_per_hour = official_max - safety_margin
         if 'api_call_wait_time_generator' in kwargs:
             self.api_call_wait_time_generator = kwargs.pop('api_call_wait_time_generator')
@@ -115,6 +116,164 @@ class SafeClient(Client):
         api_calls_in_seconds.append(time.time())
         with open(self.api_call_times_filename, 'w') as outfile:
             json.dump(api_calls_in_seconds, outfile)
+
+
+class SafeClientExtended(SafeClient):
+    """
+    Extension to the SafeClient API class. Additional features:
+        - Formats output of API calls for easier data collection.
+        - Added keyword arguments to API calls to help page through long list of results.
+        - Safety check that API call doesn't request inaccessible info from private user.
+    """
+    def _pagination(api_function):
+        """
+        Some functions require loading more page results. This python decorator does this automatically with multiple API calls.
+        """
+        @functools.wraps(api_function)
+        def api_function_wrapper(*args, begin_query_id = None, num_results_stop_api_at = 1e5, **kwargs):
+            output = []
+            while True:
+                single_query_output, begin_query_id = api_function(*args, begin_query_id = begin_query_id, **kwargs)
+                [output.append(x) for x in single_query_output if x not in output] #don't add duplicate results to output
+                if len(output) >= num_results_stop_api_at or begin_query_id == None:
+                    break
+            return output, begin_query_id
+        return api_function_wrapper
+
+    def user_info(self, user_id):
+        """
+        Returns dictionary of useful user info from user id.
+        """
+        output = super().user_info(user_id)
+        output_formatted = self._format_user_info_output(output)
+        return output_formatted
+
+    def username_info(self, username):
+        """
+        Returns dictionary of useful user info from username.
+        """
+        output = super().username_info(username)
+        output_formatted = self._format_user_info_output(output)
+        return output_formatted
+
+    def _format_user_info_output(self, output):
+        output_formatted = {
+                'username' : output['user']['username'],
+                'user_id' : output['user']['pk'],
+                'full_name' : output['user']['full_name'],
+                'private_status' : output['user']['is_private'],
+                'profile_pic_url' : output['user']['profile_pic_url'],
+                'media_count' : output['user']['media_count'],
+                'follower_count' : output['user']['follower_count'],
+                'following_count' : output['user']['following_count'],
+                'bio_text' : output['user']['biography'],
+                'url_in_bio' : output['user']['external_url'],
+                'hashtag_following_count' : output['user']['following_tag_count'],
+                'usertags_count' : output['user']['usertags_count']
+            }
+        return output_formatted
+
+    def user_followers(self, user_id, begin_query_id = None, **kwargs):
+        """
+        Returns list of [user_id, usernames] of followers and the next begin query id (for pagination).
+        """
+        self._collect_info_error_handling(user_id)
+        rank_token = super().generate_uuid()
+        output_formatted, next_begin_query_id = self._user_followers(user_id, rank_token, begin_query_id = begin_query_id, **kwargs)
+        return output_formatted, next_begin_query_id
+
+    @_pagination
+    def _user_followers(self, user_id, rank_token, begin_query_id = None, **kwargs):
+        output = super().user_followers(user_id, rank_token, max_id = begin_query_id, **kwargs)
+        next_begin_query_id = output.get('next_max_id')
+        output_formatted = self._format_follow_info_output(output)
+        return output_formatted, next_begin_query_id
+
+    def user_following(self, user_id, begin_query_id = None, **kwargs):
+        """
+        Returns list of usernames of following and the next begin query id (for pagination).
+        """
+        self._collect_info_error_handling(user_id)
+        rank_token = super().generate_uuid()
+        output_formatted, next_begin_query_id = self._user_following(user_id, rank_token, begin_query_id = begin_query_id, **kwargs)
+        return output_formatted, next_begin_query_id
+
+    @_pagination
+    def _user_following(self, user_id, rank_token, begin_query_id = None, **kwargs):
+        output = super().user_following(user_id, rank_token, max_id = begin_query_id, **kwargs)
+        next_begin_query_id = output.get('next_max_id')
+        output_formatted = self._format_follow_info_output(output)
+        return output_formatted, next_begin_query_id
+
+    def _format_follow_info_output(self, output):
+        output_formatted = [[follow['pk'],follow['username']] for follow in output['users']]
+        return output_formatted
+
+    def user_feed(self, user_id, begin_query_id = None, **kwargs):
+        """
+        Returns list (where each element is a different post) of dictionaries (each contains post info),
+        and next begin query id (for pagination).
+        """
+        self._collect_info_error_handling(user_id)
+        output_formatted, next_begin_query_index = self._user_feed(user_id, begin_query_id = begin_query_id, **kwargs)
+        return output_formatted, next_begin_query_index
+
+    @_pagination
+    def _user_feed(self, user_id, begin_query_id = None, **kwargs):
+        output = super().user_feed(user_id, max_id = begin_query_id, **kwargs)
+        next_begin_query_id = output.get('next_max_id')
+        output_formatted = self._format_user_feed_output(output)
+        return output_formatted, next_begin_query_id
+
+    def _format_user_feed_output(self, output):
+        output_formatted = []
+        for media in output['items']:
+            media_output = {
+                'media_id' : media.get('id'),
+                'username' : media.get('user').get('username'),
+                'user_id' : media.get('user').get('pk'),
+                'like_count' : media.get('like_count'),
+                'comment_count' : media.get('comment_count'),
+                'time_posted' : media.get('taken_at'),
+                'num_sliding_content' : media.get('carousel_media_count', 1),
+                'media_type' : media.get('media_type')
+            }
+            #Check for caption
+            if media.get('caption') != None:
+                media_output['caption_text'] = media['caption'].get('text')
+            else:
+                media_output['caption_text'] = None
+            #Get URL for medias
+            if media_output['num_sliding_content'] == 1:
+                media_output['media_urls'] = [media['image_versions2']['candidates'][0]['url']]
+            else:
+                media_output['media_urls'] = [single_image['image_versions2']['candidates'][0]['url'] for single_image in media['carousel_media']]
+            #Get tagged users in each post
+            if media_output['num_sliding_content'] == 1:
+                if media.get('usertags') == None:
+                    media_output['tagged_users'] = None
+                else:
+                    media_output['tagged_users'] = [[user['user']['username'], user['user']['pk']] for user in media['usertags']['in']]
+            else:
+                tagged_users = []
+                for single_image in media['carousel_media']:
+                    if single_image.get('usertags') != None:
+                        tagged_users.extend([[user['user']['pk'], user['user']['username']] for user in single_image['usertags']['in']])
+                tagged_users_no_duplicates = []
+                [tagged_users_no_duplicates.append(user) for user in tagged_users if user not in tagged_users_no_duplicates]
+                if len(tagged_users_no_duplicates) == 0:
+                    media_output['tagged_users'] = None
+                else:
+                    media_output['tagged_users'] = tagged_users_no_duplicates
+            output_formatted.append(media_output)
+        return output_formatted
+
+    def _collect_info_error_handling(self, user_id):
+        if user_id == int(self.authenticated_user_id):
+            raise ValueError("Strange behavior when requesting your own info, needs further testing.")
+        private_status = self.user_info(user_id)['private_status']
+        if private_status:
+            raise ValueError("Can't get this info from private account.")
 
 
 class ApiLimitReachedException(Exception):
