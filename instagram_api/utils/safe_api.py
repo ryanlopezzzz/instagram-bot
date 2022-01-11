@@ -175,7 +175,7 @@ class SafeClientExtended(SafeClient):
 
     def user_followers(self, user_id, begin_query_id = None, **kwargs):
         """
-        Returns list of [user_id, usernames] of followers and the next begin query id (for pagination).
+        Returns list of user ids of followers and the next begin query id (for pagination).
         """
         self._collect_info_error_handling(user_id)
         rank_token = super().generate_uuid()
@@ -191,7 +191,7 @@ class SafeClientExtended(SafeClient):
 
     def user_following(self, user_id, begin_query_id = None, **kwargs):
         """
-        Returns list of usernames of following and the next begin query id (for pagination).
+        Returns list of user ids of following and the next begin query id (for pagination).
         """
         self._collect_info_error_handling(user_id)
         rank_token = super().generate_uuid()
@@ -270,12 +270,16 @@ class SafeClientExtended(SafeClient):
 
     def _collect_info_error_handling(self, user_id):
         if user_id == int(self.authenticated_user_id):
-            raise ValueError("Strange behavior when requesting your own info, needs further testing.")
+            raise RequestingBadInfoException("Strange behavior when requesting your own info, needs further testing.")
         private_status = self.user_info(user_id)['private_status']
         if private_status:
-            raise ValueError("Can't get this info from private account.")
+            raise RequestingBadInfoException("Can't get this info from private account.")
 
 
 class ApiLimitReachedException(Exception):
     def __init__(self):
         super().__init__('API Limit Reached.')
+
+class RequestingBadInfoException(Exception):
+    def __init__(self, msg):
+        super().__init__(msg)
