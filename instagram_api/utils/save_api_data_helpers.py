@@ -10,8 +10,10 @@ def add_following_user_info_to_csv(api, user_id, user_table_filename, **api_kwar
     Returns next_begin_query_id and adds user_id's followers' user info to csv file.
     """
     following_ids, next_begin_query_id = api.user_following(user_id, **api_kwargs)
-    user_table = get_user_info_table(api, following_ids)
-    update_csv_file(user_table, user_table_filename)
+    following_ids_partition = [following_ids[x:x+20] for x in range(0, len(following_ids), 20)] #save table every 20 results
+    for following_ids_subset in following_ids_partition:
+        user_table = get_user_info_table(api, following_ids_subset)
+        update_csv_file(user_table, user_table_filename)
     return next_begin_query_id
 
 def add_followers_user_info_to_csv(api, user_id, user_table_filename, **api_kwargs):
@@ -19,8 +21,10 @@ def add_followers_user_info_to_csv(api, user_id, user_table_filename, **api_kwar
     Returns next_begin_query_id and adds user_id's followers' user info to csv file.
     """
     followers_ids, next_begin_query_id = api.user_followers(user_id, **api_kwargs)
-    user_table = get_user_info_table(api, followers_ids)
-    update_csv_file(user_table, user_table_filename)
+    followers_ids_partition = [followers_ids[x:x+20] for x in range(0, len(followers_ids), 20)] #save table every 20 results
+    for followers_ids_subset in followers_ids_partition:
+        user_table = get_user_info_table(api, followers_ids_subset)
+        update_csv_file(user_table, user_table_filename)
     return next_begin_query_id
 
 def add_user_feed_to_csv(api, user_id, media_table_filename, **api_kwargs):
@@ -83,3 +87,14 @@ def combine_info_tables(table1, table2):
     duplicated_indices = new_table.index.duplicated(keep='first') #all duplicates except the first set to True
     new_table = new_table[~duplicated_indices]
     return new_table
+
+def user_id_in_table(user_id, table):
+    """
+    Returns true if user_id is in 'user_id' column of table.
+    """
+    if table is None:
+        return False
+    else:
+        user_ids_present = table.reset_index()['user_id'].values
+        user_id_in_table = (user_id in user_ids_present)
+        return user_id_in_table

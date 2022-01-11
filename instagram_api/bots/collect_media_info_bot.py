@@ -8,15 +8,7 @@ import sys
 instagram_api_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(1, instagram_api_folder)
 from utils.safe_api import (SafeClientExtended, RequestingBadInfoException)
-from utils.save_api_data_helpers import add_user_feed_to_csv
-
-def user_id_in_table(user_id, table):
-    if table is None:
-        return False
-    else:
-        user_ids_present = table.reset_index()['user_id'].values
-        user_id_in_table = (user_id in user_ids_present)
-        return user_id_in_table
+from utils.save_api_data_helpers import (add_user_feed_to_csv, user_id_in_table)
 
 def should_collect_media_info_on_user(user_id, user_table, media_table):
     if user_id_in_table(user_id, media_table) == True:
@@ -52,7 +44,6 @@ else:
 #Run data collecting bot
 for user_id in loaded_user_table.index.values:
     if should_collect_media_info_on_user(user_id, loaded_user_table, loaded_media_table):
-        #Potential speed up --- Skip if user has zero posts!
         print(f'Collecting media data on user id {user_id}')
         try:
             _ = add_user_feed_to_csv(api, user_id, media_table_filename, num_results_stop_api_at = 100)
