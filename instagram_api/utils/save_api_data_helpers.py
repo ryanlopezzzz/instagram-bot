@@ -72,7 +72,7 @@ def get_user_feed_table(api, user_id, **api_kwargs):
 
 def update_csv_file(table, csv_filename):
     if os.path.isfile(csv_filename):
-        loaded_table = pd.read_csv(csv_filename, index_col=0)
+        loaded_table = pd.read_csv(csv_filename, index_col=0, engine='python')
     else:
         loaded_table = None
     new_table = combine_info_tables(table, loaded_table)
