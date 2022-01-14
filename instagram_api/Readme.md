@@ -11,7 +11,7 @@ After cloning this repository with git, it is recommended to use Anaconda and cr
 
 Here are the (non-standard) packages used:
 * Ping's Instagram API for data collection: [Github](https://github.com/ping/instagram_private_api) | [Documentation](https://instagram-private-api.readthedocs.io/en/latest/api.html#module-instagram_private_api)
-* Instauto API for posting photos: [Github](https://github.com/stanvanrooy/instauto) [Documentation](https://instauto.readthedocs.io/en/latest/)
+* Instauto API for posting photos: [Github](https://github.com/stanvanrooy/instauto) | [Documentation](https://instauto.readthedocs.io/en/latest/)
 * Names for generating random names: [Names Package](https://pypi.org/project/names/)
 * Pyclick for making human-like mouse movements: [Pyclick Package](https://pypi.org/project/pyclick/)
 * Pynput for automated typing on keyboard: [Pynput Package](https://pypi.org/project/pynput/)
