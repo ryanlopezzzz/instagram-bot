@@ -17,10 +17,10 @@ class SafeClient(Client):
         - Sleeps before making API calls
         - Restricts number of API calls per hour
     """
-    def __init__(self, username, password, retry_failed_call = False, *args, **kwargs):
-        self.api_call_times_filename = os.path.join(instagram_api_folder, 'saved_info/%s_api_call_times.json'%username)
-        self.settings_filename = os.path.join(instagram_api_folder, 'saved_info/%s_login_settings.json'%username)
+    def __init__(self, username, *args, retry_failed_call = False, **kwargs):
         self.retry_failed_call = retry_failed_call #If True, when API call limit is reached, program will sleep and then retry.
+        
+        #Check for keyword arguments
         if 'max_api_calls_per_hour' in kwargs:
             self.max_api_calls_per_hour = kwargs.pop('max_api_calls_per_hour')
         else:
@@ -32,25 +32,38 @@ class SafeClient(Client):
         else:
             #random time for api calls makes bot look more human
             self.api_call_wait_time_generator = lambda : np.random.uniform(low=3.0, high=4.0) 
-        
-        #Create file for keeping api call times if doesnt exist
+
+        self.api_call_times_filename = os.path.join(instagram_api_folder, 'saved_info/%s_api_call_times.json'%username)
         if not os.path.isfile(self.api_call_times_filename):
-            with open(self.api_call_times_filename, 'w') as outfile:
+            self._create_api_call_times_file()
+        password = self._get_password(username)
+        self._login_with_cached_data(username, password, *args, **kwargs)
+
+    def _create_api_call_times_file(self):
+        with open(self.api_call_times_filename, 'w') as outfile:
                 initial_time_list = [0] #give nonempty file for json to read
                 json.dump(initial_time_list, outfile)
+    
+    def _get_password(self, username):
+        usernames_passwords_filename = os.path.join(instagram_api_folder, 'saved_info', 'usernames_passwords.txt')
+        with open(usernames_passwords_filename, 'r') as usernames_passwords_file:
+            usernames_passwords = json.load(usernames_passwords_file)
+        password = usernames_passwords[username]
+        return password
 
-        #Initialize with saved auth cookies if exists or create new login.
+    def _login_with_cached_data(self, username, password, *args, **kwargs):
+        settings_filename = os.path.join(instagram_api_folder, 'saved_info/%s_login_settings.json'%username)
         try:
-            if not os.path.isfile(self.settings_filename):
-                on_login = lambda x: SafeClient._onlogin_callback(x, self.settings_filename)
+            if not os.path.isfile(settings_filename): #create new login
+                on_login = lambda x: SafeClient._onlogin_callback(x, settings_filename)
                 super().__init__(username, password, *args, on_login=on_login, **kwargs)
-            else:
-                with open(self.settings_filename) as file_data:
+            else: #load login data
+                with open(settings_filename) as file_data:
                     cached_settings = json.load(file_data, object_hook=SafeClient._from_json)
                 super().__init__(username, password, *args, settings=cached_settings, **kwargs)
-        except (ClientCookieExpiredError, ClientLoginRequiredError) as e:
+        except (ClientCookieExpiredError, ClientLoginRequiredError) as e: #error logging in
             print('ClientCookieExpiredError/ClientLoginRequiredError: {0!s}'.format(e))
-            on_login = lambda x: SafeClient._onlogin_callback(x, self.settings_filename)
+            on_login = lambda x: SafeClient._onlogin_callback(x, settings_filename)
             super().__init__(username, password, *args, on_login=on_login, **kwargs)
 
     @staticmethod
@@ -177,7 +190,7 @@ class SafeClientExtended(SafeClient):
         """
         Returns list of user ids of followers and the next begin query id (for pagination).
         """
-        self._collect_info_error_handling(user_id)
+        self._user_id_error_handling(user_id)
         rank_token = super().generate_uuid()
         output_formatted, next_begin_query_id = self._user_followers(user_id, rank_token, begin_query_id = begin_query_id, **kwargs)
         return output_formatted, next_begin_query_id
@@ -193,7 +206,7 @@ class SafeClientExtended(SafeClient):
         """
         Returns list of user ids of following and the next begin query id (for pagination).
         """
-        self._collect_info_error_handling(user_id)
+        self._user_id_error_handling(user_id)
         rank_token = super().generate_uuid()
         output_formatted, next_begin_query_id = self._user_following(user_id, rank_token, begin_query_id = begin_query_id, **kwargs)
         return output_formatted, next_begin_query_id
@@ -214,7 +227,7 @@ class SafeClientExtended(SafeClient):
         Returns list (where each element is a different post) of dictionaries (each contains post info),
         and next begin query id (for pagination).
         """
-        self._collect_info_error_handling(user_id)
+        self._user_id_error_handling(user_id)
         output_formatted, next_begin_query_index = self._user_feed(user_id, begin_query_id = begin_query_id, **kwargs)
         return output_formatted, next_begin_query_index
 
@@ -268,13 +281,20 @@ class SafeClientExtended(SafeClient):
             output_formatted.append(media_output)
         return output_formatted
 
-    def _collect_info_error_handling(self, user_id):
+    def _user_id_error_handling(self, user_id):
         if user_id == int(self.authenticated_user_id):
             raise RequestingBadInfoException("Strange behavior when requesting your own info, needs further testing.")
         private_status = self.user_info(user_id)['private_status']
         if private_status:
             raise RequestingBadInfoException("Can't get this info from private account.")
 
+    def media_likers(self, media_id):
+        """
+        Returns partial list of user ids who liked a media post. Same amount as publicly visible on Instagram App.
+        """
+        media_likers_info = super().media_likers(media_id)
+        media_likers_user_ids = [user['pk'] for user in media_likers_info['users']]
+        return media_likers_user_ids
 
 class ApiLimitReachedException(Exception):
     def __init__(self):
