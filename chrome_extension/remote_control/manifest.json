@@ -1,0 +1,11 @@
+{
+    "name": "Remote Control",
+    "description": "An extension that allows interactions with an external application",
+    "version": "0.1",
+    "manifest_version": 3,
+    "background": {
+        "service_worker": "background.js"
+    },
+    "permissions": [ "tabs" ],
+    "host_permissions": [ "*://localhost:*/*" ]
+}
