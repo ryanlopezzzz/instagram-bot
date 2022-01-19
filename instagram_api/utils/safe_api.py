@@ -48,7 +48,9 @@ class SafeClient(Client):
         usernames_passwords_filename = os.path.join(instagram_api_folder, 'saved_info', 'usernames_passwords.txt')
         with open(usernames_passwords_filename, 'r') as usernames_passwords_file:
             usernames_passwords = json.load(usernames_passwords_file)
-        password = usernames_passwords[username]
+        password = usernames_passwords.get(username)
+        if password == None:
+            raise PasswordNotDefinedException()
         return password
 
     def _login_with_cached_data(self, username, password, *args, **kwargs):
@@ -295,6 +297,10 @@ class SafeClientExtended(SafeClient):
         media_likers_info = super().media_likers(media_id)
         media_likers_user_ids = [user['pk'] for user in media_likers_info['users']]
         return media_likers_user_ids
+
+class PasswordNotDefinedException(Exception):
+    def __init__(self):
+        super().__init__('Password not defined in usernames_passwords file')
 
 class ApiLimitReachedException(Exception):
     def __init__(self):
