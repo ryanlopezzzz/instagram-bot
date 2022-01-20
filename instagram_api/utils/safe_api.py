@@ -294,9 +294,30 @@ class SafeClientExtended(SafeClient):
         """
         Returns partial list of user ids who liked a media post. Same amount as publicly visible on Instagram App.
         """
-        media_likers_info = super().media_likers(media_id)
-        media_likers_user_ids = [user['pk'] for user in media_likers_info['users']]
-        return media_likers_user_ids
+        output = super().media_likers(media_id)
+        formatted_output = self._format_media_likers_output(output)
+        return formatted_output
+
+    def _format_media_likers_output(self, output):
+        output_formatted = [user['pk'] for user in output['users']]
+        return output_formatted
+
+    def media_comments(self, media_id, num_results_stop_api_at=100):
+        output = super().media_n_comments(media_id, n=num_results_stop_api_at)
+        output_formatted = self._format_media_comments(output)
+        return output_formatted
+
+    def _format_media_comments(self, output):
+        formatted_output = [
+            {
+                'user_id': comment['user_id'], 
+                'time_posted': comment['created_at_utc'], 
+                'text': comment['text']
+                }
+            for comment in output
+        ]
+        return formatted_output
+
 
 class PasswordNotDefinedException(Exception):
     def __init__(self):
