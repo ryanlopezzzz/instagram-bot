@@ -1,7 +1,7 @@
 """
 Collects media (post) info from users we've collected user info on.
 """
-from instagram_private_api import ClientError
+from instagram_private_api import (ClientError, ClientConnectionError)
 import time
 import numpy as np
 import pandas as pd
@@ -48,7 +48,8 @@ else:
 #previous users which have given client errors.
 bad_user_ids = [51182897960, 13053481207, 1295208947, 4350769776, 44299115548, 44753617779, 
                 32788714015, 12364239772, 50750437882, 6230984983, 5872393888, 1811694664, 13096914, 
-                1077448382, 49823679205, 50820893565, 50740850513, 46272456547, 48843118405, 27396305200]
+                1077448382, 49823679205, 50820893565, 50740850513, 46272456547, 48843118405, 27396305200, 
+                1707557882, 7388340598]
 
 #Run data collecting bot
 client_errors = 0
@@ -60,6 +61,8 @@ for user_id in loaded_user_table.index.values:
         try:
             _ = add_user_feed_to_csv(api, user_id, media_table_filename, num_results_stop_api_at = 100)
         except RequestingBadInfoException as e:
+            print('Exception: %s, Message: %s'%(type(e).__name__,e))
+        except ClientConnectionError as e:
             print('Exception: %s, Message: %s'%(type(e).__name__,e))
         except ClientError as e:
             print('Exception: %s, Message: %s'%(type(e).__name__,e))
