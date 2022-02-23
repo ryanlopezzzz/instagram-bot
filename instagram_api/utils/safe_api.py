@@ -140,6 +140,14 @@ class SafeClientExtended(SafeClient):
         - Added keyword arguments to API calls to help page through long list of results.
         - Safety check that API call doesn't request inaccessible info from private user.
     """
+    def __init__(self, *args, allow_checking_friends = False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.allow_checking_user_ids = [] #additional user ids which are safe to get info from
+        if allow_checking_friends:
+            self.allow_checking_user_ids = [int(self.authenticated_user_id)]
+            api_user_following, _ = self.user_following(self.authenticated_user_id)
+            self.allow_checking_user_ids.extend(api_user_following)
+
     def _pagination(api_function):
         """
         Some functions require loading more page results. This python decorator does this automatically with multiple API calls.
@@ -188,40 +196,45 @@ class SafeClientExtended(SafeClient):
             }
         return output_formatted
 
-    def user_followers(self, user_id, begin_query_id = None, **kwargs):
+    def user_followers(self, user_id, begin_query_id = None, return_username = False, **kwargs):
         """
         Returns list of user ids of followers and the next begin query id (for pagination).
         """
         self._user_id_error_handling(user_id)
         rank_token = super().generate_uuid()
-        output_formatted, next_begin_query_id = self._user_followers(user_id, rank_token, begin_query_id = begin_query_id, **kwargs)
+        output_formatted, next_begin_query_id = self._user_followers(user_id, rank_token, begin_query_id = begin_query_id, 
+                                                                    return_username = return_username, **kwargs)
         return output_formatted, next_begin_query_id
 
     @_pagination
-    def _user_followers(self, user_id, rank_token, begin_query_id = None, **kwargs):
-        output = super().user_followers(user_id, rank_token, max_id = begin_query_id, **kwargs)
+    def _user_followers(self, user_id, rank_token, begin_query_id = None, return_username = False, **kwargs):
+        output = super().user_followers(user_id, rank_token, max_id = begin_query_id, return_username = return_username, **kwargs)
         next_begin_query_id = output.get('next_max_id')
-        output_formatted = self._format_follow_info_output(output)
+        output_formatted = self._format_follow_info_output(output, return_username)
         return output_formatted, next_begin_query_id
 
-    def user_following(self, user_id, begin_query_id = None, **kwargs):
+    def user_following(self, user_id, begin_query_id = None, return_username = False, **kwargs):
         """
         Returns list of user ids of following and the next begin query id (for pagination).
         """
         self._user_id_error_handling(user_id)
         rank_token = super().generate_uuid()
-        output_formatted, next_begin_query_id = self._user_following(user_id, rank_token, begin_query_id = begin_query_id, **kwargs)
+        output_formatted, next_begin_query_id = self._user_following(user_id, rank_token, begin_query_id = begin_query_id, 
+                                                                    return_username = return_username, **kwargs)
         return output_formatted, next_begin_query_id
 
     @_pagination
-    def _user_following(self, user_id, rank_token, begin_query_id = None, **kwargs):
+    def _user_following(self, user_id, rank_token, begin_query_id = None, return_username = False, **kwargs):
         output = super().user_following(user_id, rank_token, max_id = begin_query_id, **kwargs)
         next_begin_query_id = output.get('next_max_id')
-        output_formatted = self._format_follow_info_output(output)
+        output_formatted = self._format_follow_info_output(output, return_username)
         return output_formatted, next_begin_query_id
 
-    def _format_follow_info_output(self, output):
-        output_formatted = [follow['pk'] for follow in output['users']]
+    def _format_follow_info_output(self, output, return_username):
+        if not return_username: #returns user_id
+            output_formatted = [follow['pk'] for follow in output['users']]
+        else: #return user_id and username
+            output_formatted = [[follow['pk'], follow['username']] for follow in output['users']]
         return output_formatted
 
     def user_feed(self, user_id, begin_query_id = None, **kwargs):
@@ -284,6 +297,8 @@ class SafeClientExtended(SafeClient):
         return output_formatted
 
     def _user_id_error_handling(self, user_id):
+        if user_id in self.allow_checking_user_ids:
+            return
         if user_id == int(self.authenticated_user_id):
             raise RequestingBadInfoException("Strange behavior when requesting your own info, needs further testing.")
         private_status = self.user_info(user_id)['private_status']
@@ -323,9 +338,11 @@ class PasswordNotDefinedException(Exception):
     def __init__(self):
         super().__init__('Password not defined in usernames_passwords file')
 
+
 class ApiLimitReachedException(Exception):
     def __init__(self):
         super().__init__('API Limit Reached.')
+
 
 class RequestingBadInfoException(Exception):
     def __init__(self, msg):
