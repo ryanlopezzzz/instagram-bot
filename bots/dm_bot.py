@@ -22,7 +22,7 @@ def respond_to_dm_requests():
             break
 
 while True:
-    time.sleep(random.uniform(9.0, 11.0))
+    time.sleep(random.uniform(6.0, 9.0))
     respond_to_dm_requests()
     if bot.check_if_new_dm():
         bot.click_on_box('../instagram_images/new_message_dot.png')
