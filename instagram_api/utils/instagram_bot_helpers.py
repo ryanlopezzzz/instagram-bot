@@ -247,7 +247,7 @@ class AutomatedInstagramSession():
     def check_for_request_button(self):
         request_button_found = self.get_matched_result_image('../instagram_images/request_dm_button.png')
         request_text = self.image_to_text(request_button_found)
-        if request_text == 'Request':
+        if 'Request' in request_text:
             return True
         else:
             return False
